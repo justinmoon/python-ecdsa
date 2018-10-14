@@ -26,6 +26,9 @@ class VerifyingKey:
             raise TypeError("Please use VerifyingKey.generate() to "
                             "construct me")
 
+    def __eq__(self, other):
+        return self.to_string() == other.to_string()
+
     @classmethod
     def from_public_point(klass, point, curve=NIST192p, hashfunc=sha1):
         self = klass(_error__please_use_generate=True)
