@@ -145,6 +145,44 @@ class VerifyingKey:
             return True
         raise BadSignatureError
 
+    def to_sec(self, compressed=True):
+        order = self.pubkey.order
+        x = self.pubkey.point.x()
+        y = self.pubkey.point.y()
+        x_str = number_to_string(x, order)
+        if compressed:
+            if y & 1:
+                return b('\x03') + x_str
+            else:
+                return b('\x02') + x_str
+        else:
+            y_str = number_to_string(y, order)
+            return b('\x04') + x_str + y_str
+
+    # based on code from https://github.com/richardkiss/pycoin
+    @classmethod
+    def from_sec (klass, string, curve=NIST192p, hashfunc=sha1, validate_point=True):
+        if string.startswith (b'\x04'):
+            # uncompressed
+            return klass.from_string (string[1:], curve, hashfunc, validate_point)
+        elif string.startswith (b('\x02')) or string.startswith (b'\x03'):
+            # compressed
+            is_even = string.startswith (b'\x02')
+            x = string_to_number (string[1:])
+            order = curve.order
+            p = curve.curve.p()
+            alpha = (pow(x, 3, p) + curve.curve.a() * x + curve.curve.b()) % p
+            beta  = square_root_mod_prime (alpha, p)
+            if is_even == bool(beta & 1):
+                y = p - beta
+            else:
+                y = beta
+            if validate_point:
+                assert ecdsa.point_is_valid(curve.generator, x, y)
+            from . import ellipticcurve
+            point = ellipticcurve.Point (curve.curve, x, y, order)
+            return klass.from_public_point (point, curve, hashfunc)
+
 
 class SigningKey:
     def __init__(self, _error__please_use_generate=None):
